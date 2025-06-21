@@ -1,6 +1,5 @@
 import Order from '../models/Order.js';
 
-// Create order
 export const createOrder = async (req, res) => {
   try {
     const order = await Order.create(req.body);
@@ -11,7 +10,6 @@ export const createOrder = async (req, res) => {
   }
 };
 
-// Get all orders
 export const getOrders = async (req, res) => {
   try {
     const orders = await Order.find()
@@ -24,7 +22,6 @@ export const getOrders = async (req, res) => {
   }
 };
 
-// Get order by ID
 export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
@@ -38,7 +35,6 @@ export const getOrderById = async (req, res) => {
   }
 };
 
-// Update order
 export const updateOrder = async (req, res) => {
   try {
     const updated = await Order.findByIdAndUpdate(req.params.id, req.body, { new: true });
@@ -49,7 +45,6 @@ export const updateOrder = async (req, res) => {
   }
 };
 
-// Delete order
 export const deleteOrder = async (req, res) => {
   try {
     await Order.findByIdAndDelete(req.params.id);
