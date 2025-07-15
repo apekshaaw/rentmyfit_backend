@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import Product from '../models/Product.js'; // For population if needed
 
 // Register User
 export const registerUser = async (req, res) => {
@@ -68,6 +69,7 @@ export const loginUser = async (req, res) => {
         mobile: user.mobile || '',
         gender: user.gender || '',
         address: user.address || '',
+        wishlist: user.wishlist || [],
       },
     });
   } catch (error) {
@@ -101,12 +103,13 @@ export const updateProfile = async (req, res) => {
       user: {
         id: user._id,
         name: user.name,
-        email: user.email, 
+        email: user.email,
         role: user.role,
         profileImage: user.profileImage || '',
         mobile: user.mobile || '',
         gender: user.gender || '',
         address: user.address || '',
+        wishlist: user.wishlist || [],
       },
     });
   } catch (error) {
@@ -120,10 +123,69 @@ export const deleteAccount = async (req, res) => {
   try {
     const userId = req.userId;
     await User.findByIdAndDelete(userId);
-
     res.status(200).json({ message: 'Account deleted successfully' });
   } catch (error) {
     console.error('Delete Account Error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Add to Wishlist
+export const addToWishlist = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { productId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user.wishlist.includes(productId)) {
+      user.wishlist.push(productId);
+      await user.save();
+    }
+
+    res.status(200).json({ message: 'Added to wishlist', wishlist: user.wishlist });
+  } catch (error) {
+    console.error('Add Wishlist Error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Remove from Wishlist
+export const removeFromWishlist = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { productId } = req.params; // ✅ FIXED: using URL param instead of req.body
+
+    if (!productId) {
+      return res.status(400).json({ message: 'Product ID missing' });
+    }
+
+    const user = await User.findById(userId);
+
+    user.wishlist = user.wishlist.filter(
+      (id) => id.toString() !== productId.toString()
+    );
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Removed from wishlist',
+      wishlist: user.wishlist,
+    });
+  } catch (error) {
+    console.error('Remove Wishlist Error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+
+// Get Wishlist
+export const getWishlist = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const user = await User.findById(userId).populate('wishlist');
+    res.status(200).json({ wishlist: user.wishlist });
+  } catch (error) {
+    console.error('Get Wishlist Error:', error.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
