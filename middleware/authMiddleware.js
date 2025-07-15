@@ -7,14 +7,22 @@ const authMiddleware = (req, res, next) => {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        const msg = err.name === 'TokenExpiredError'
+          ? 'Token expired'
+          : 'Invalid token';
+        console.error('Auth Middleware Error:', msg);
+        return res.status(401).json({ message: msg });
+      }
 
-    next();
+      req.userId = decoded.userId;
+      req.userRole = decoded.role;
+      next();
+    });
   } catch (error) {
     console.error('Auth Middleware Error:', error.message);
-    res.status(401).json({ message: 'Invalid token' });
+    res.status(401).json({ message: 'Authentication failed' });
   }
 };
 
