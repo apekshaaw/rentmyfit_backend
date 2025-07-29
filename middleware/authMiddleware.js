@@ -2,27 +2,30 @@ import jwt from 'jsonwebtoken';
 
 const authMiddleware = (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.split(' ')[1];
-    if (!token) {
+    const authHeader = req.header('Authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
-      if (err) {
-        const msg = err.name === 'TokenExpiredError'
-          ? 'Token expired'
-          : 'Invalid token';
-        console.error('Auth Middleware Error:', msg);
-        return res.status(401).json({ message: msg });
-      }
+    const token = authHeader.split(' ')[1];
 
-      req.userId = decoded.userId;
-      req.userRole = decoded.role;
-      next();
-    });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    if (!decoded || !decoded.userId) {
+      return res.status(401).json({ message: 'Invalid token payload' });
+    }
+
+    req.userId = decoded.userId;
+    req.userRole = decoded.role;
+    next();
   } catch (error) {
-    console.error('Auth Middleware Error:', error.message);
-    res.status(401).json({ message: 'Authentication failed' });
+    const msg =
+      error.name === 'TokenExpiredError'
+        ? 'Token expired'
+        : 'Invalid or expired token';
+    console.error('Auth Middleware Error:', msg);
+    res.status(401).json({ message: msg });
   }
 };
 
