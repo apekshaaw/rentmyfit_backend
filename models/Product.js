@@ -18,6 +18,11 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+     description: {
+      type: String,
+      required: false,
+      trim: true,
+    },
   },
   {
     timestamps: true,
