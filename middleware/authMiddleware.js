@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
+import User from '../models/User.js';
 
-const authMiddleware = (req, res, next) => {
+const authMiddleware = async (req, res, next) => {
   try {
-    const authHeader = req.header('Authorization');
+    const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token provided' });
@@ -10,14 +11,28 @@ const authMiddleware = (req, res, next) => {
 
     const token = authHeader.split(' ')[1];
 
+    if (!process.env.JWT_SECRET) {
+      throw new Error('JWT_SECRET not defined');
+    }
+
+    // Decode token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (!decoded || !decoded.userId) {
+    if (!decoded || !decoded.id) {
       return res.status(401).json({ message: 'Invalid token payload' });
     }
 
-    req.userId = decoded.userId;
-    req.userRole = decoded.role;
+    // Fetch user
+    const user = await User.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
+    }
+
+    // Attach user info to request
+    req.user = user;
+    req.userId = user._id.toString();
+    req.userRole = user.role;
+
     next();
   } catch (error) {
     const msg =
@@ -25,7 +40,7 @@ const authMiddleware = (req, res, next) => {
         ? 'Token expired'
         : 'Invalid or expired token';
     console.error('Auth Middleware Error:', msg);
-    res.status(401).json({ message: msg });
+    return res.status(401).json({ message: msg });
   }
 };
 
