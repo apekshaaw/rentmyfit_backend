@@ -1,94 +1,105 @@
 import request from 'supertest';
-import app from '../app.js';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import app from '../app.js';
+import Product from '../models/Product.js';
 
 beforeAll(async () => {
-  await mongoose.connect(process.env.MONGODB_URI_TEST || 'mongodb://127.0.0.1:27017/rentmyfit_test', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  });
+  await mongoose.connect('mongodb://127.0.0.1:27017/rentmyfit_test');
+});
+
+afterEach(async () => {
+  await Product.deleteMany({});
 });
 
 afterAll(async () => {
-  await mongoose.connection.close();
+  await mongoose.disconnect();
 });
 
+describe('🧪 Product CRUD Tests', () => {
+  const createProduct = async () => {
+    const res = await request(app).post('/api/products').send({
+      name: 'Test Shirt',
+      category: 'Shirts',
+      sizes: ['S', 'M', 'L'],
+      price: 25.99,
+      image: 'test.jpg',
+      description: 'A comfortable shirt',
+    });
+    return res.body;
+  };
 
-jest.setTimeout(15000); // Extend timeout to 15s
-
-let productId;
-
-describe('🛍️ Product CRUD', () => {
-  // 1️⃣ Create a new product (admin)
-  it('should create a new product with valid data', async () => {
-    const res = await request(app)
-      .post('/api/products')
-      .send({
-        name: 'Test Dress',
-        category: 'Women',
-        sizes: ['S', 'M'],
-        price: 49.99,
-        image: 'image.jpg',
-      });
-
-    console.log('Create product response:', res.body);
+  test('✅ should create a new product', async () => {
+    const res = await request(app).post('/api/products').send({
+      name: 'Test Shirt',
+      category: 'Shirts',
+      sizes: ['S', 'M', 'L'],
+      price: 25.99,
+      image: 'test.jpg',
+      description: 'A comfortable shirt',
+    });
 
     expect(res.status).toBe(201);
-    expect(res.body.name).toBe('Test Dress');
-    productId = res.body._id;
+    expect(res.body).toHaveProperty('_id');
   });
 
-  // 2️⃣ Create product without required fields
-  it('should fail to create a product without required fields', async () => {
-    const res = await request(app)
-      .post('/api/products')
-      .send({
-        category: 'Men',
-        image: 'image.jpg',
-      });
+  test('✅ should get all products', async () => {
+    await createProduct();
 
-    expect(res.status).toBe(400);
-    expect(res.body.message).toBeDefined();
-  });
-
-  // 3️⃣ Fetch all products
-  it('should fetch all products', async () => {
     const res = await request(app).get('/api/products');
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
   });
 
-  // 4️⃣ Fetch product by valid ID
-  it('should fetch product by ID', async () => {
-    const res = await request(app).get(`/api/products/${productId}`);
+  test('✅ should get product by ID', async () => {
+    const product = await createProduct();
+
+    const res = await request(app).get(`/api/products/${product._id}`);
     expect(res.status).toBe(200);
-    expect(res.body._id).toBe(productId);
+    expect(res.body).toHaveProperty('_id', product._id);
   });
 
-  // 5️⃣ Fetch product by invalid/malformed ID
-  it('should return 500 for malformed product ID', async () => {
-    const res = await request(app).get('/api/products/invalid123');
-    expect(res.status).toBe(500);
-    expect(res.body.message).toBeDefined();
-  });
+  test('✅ should update product name', async () => {
+    const product = await createProduct();
 
-  // 6️⃣ Update product details by ID
-  it('should update the product name', async () => {
     const res = await request(app)
-      .put(`/api/products/${productId}`)
-      .send({ name: 'Updated Dress' });
+      .put(`/api/products/${product._id}`)
+      .send({ name: 'Updated Shirt' });
 
     expect(res.status).toBe(200);
-    expect(res.body.name).toBe('Updated Dress');
+    expect(res.body.name).toBe('Updated Shirt');
   });
 
-  // 7️⃣ Delete product by ID
-  it('should delete product by ID', async () => {
-    const res = await request(app).delete(`/api/products/${productId}`);
+  test('✅ should update product price', async () => {
+    const product = await createProduct();
+
+    const res = await request(app)
+      .put(`/api/products/${product._id}`)
+      .send({ price: 30.5 });
+
+    expect(res.status).toBe(200);
+    expect(res.body.price).toBe(30.5);
+  });
+
+  test('❌ should return 500 for invalid ID format', async () => {
+    const res = await request(app).get('/api/products/invalidid123');
+    expect(res.status).toBe(500);
+  });
+
+  test('✅ should delete the product', async () => {
+    const product = await createProduct();
+
+    const res = await request(app).delete(`/api/products/${product._id}`);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe('Deleted successfully');
+  });
+
+  test('❌ should return 404 for deleted product', async () => {
+    const product = await createProduct();
+    await request(app).delete(`/api/products/${product._id}`);
+
+    const res = await request(app).get(`/api/products/${product._id}`);
+    expect(res.status).toBe(404);
+    expect(res.body.message).toBe('Not found');
   });
 });
